@@ -1,0 +1,35 @@
+{
+  "name": "vitest-ao",
+  "version": "1.0.0",
+  "description": "A Vitest plugin that optimizes test output for AI agents by replacing verbose output with compact, structured JSON.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "vitest",
+    "plugin",
+    "ai",
+    "agent",
+    "testing",
+    "json",
+    "output",
+    "optimizer"
+  ],
+  "author": "Thomas",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/sinon": "^21.0.1",
+    "sinon": "^21.0.3",
+    "typescript": "^5.5.3",
+    "vitest": "^1.6.0"
+  },
+  "peerDependencies": {
+    "vitest": ">=1.0.0"
+  }
+}

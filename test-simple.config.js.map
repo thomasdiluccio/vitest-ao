@@ -1,0 +1,1 @@
+{"version":3,"file":"test-simple.config.js","sourceRoot":"","sources":["test-simple.config.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,YAAY,EAAE,MAAM,eAAe,CAAC;AAC7C,OAAO,EAAE,cAAc,EAAE,MAAM,2BAA2B,CAAC;AAE3D,eAAe,YAAY,CAAC;IAC1B,IAAI,EAAE;QACJ,WAAW,EAAE,MAAM;QACnB,SAAS,EAAE,CAAC,SAAS,EAAE,cAAqB,CAAC;KAC9C;CACF,CAAC,CAAC"}
