@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+# Run linting and tests
+npm run check
+
+# Exit with the status of the check command
+if [ $? -ne 0 ]; then
+  echo "❌ Pre-commit checks failed. Please fix the issues and try again."
+  exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"
