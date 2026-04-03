@@ -37,9 +37,12 @@ export class VitestAoReporter {
 
   onTaskUpdate(packs: TaskResultPack[]): void {
     for (const pack of packs) {
-      for (const task of pack.tasks) {
+      // Handle different task structures
+      const tasks = Array.isArray(pack.tasks) ? pack.tasks : pack.tasks ? [pack.tasks] : [];
+      
+      for (const task of tasks) {
         // Track test results
-        if (task.type === 'test') {
+        if (task?.type === 'test') {
           this.testResults.tests++;
           
           if (task.result?.state === 'passed') {

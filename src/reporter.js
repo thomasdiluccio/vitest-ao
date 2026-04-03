@@ -17,16 +17,16 @@ export class VitestAoReporter {
             process.env.MISTRAL_VIBE_CLI !== undefined ||
             process.env.CODEX_ENV !== undefined);
     }
-    onInit(ctx) {
-        if (this.isAgentEnvironment()) {
-            console.log('VITEST-AO: Reporter initialized in agent mode');
-        }
+    onInit(_ctx) {
+        // Initialization logic if needed
     }
     onTaskUpdate(packs) {
         for (const pack of packs) {
-            for (const task of pack.tasks) {
+            // Handle different task structures
+            const tasks = Array.isArray(pack.tasks) ? pack.tasks : pack.tasks ? [pack.tasks] : [];
+            for (const task of tasks) {
                 // Track test results
-                if (task.type === 'test') {
+                if (task?.type === 'test') {
                     this.testResults.tests++;
                     if (task.result?.state === 'passed') {
                         this.testResults.passed++;
@@ -46,7 +46,7 @@ export class VitestAoReporter {
             }
         }
     }
-    onFinished(files, errors) {
+    onFinished(files, _errors) {
         // Calculate duration from files
         const duration_ms = files?.reduce((acc, file) => acc + (file.result?.duration || 0), 0) || 0;
         // Update final result
@@ -62,6 +62,7 @@ export class VitestAoReporter {
         };
         // Only output JSON when in agent environment
         if (this.isAgentEnvironment()) {
+            // eslint-disable-next-line no-console
             console.log(JSON.stringify(this.testResults, null, 2));
         }
     }

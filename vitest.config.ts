@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import { VitestAoReporter } from './dist/src/reporter.js';
+import { VitestAoReporter } from './src/reporter.js';
 
 export default defineConfig({
   test: {

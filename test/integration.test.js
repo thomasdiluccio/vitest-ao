@@ -1,6 +1,6 @@
+import { spy } from 'sinon';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { VitestAoReporter } from '../src/reporter.js';
-import { spy } from 'sinon';
 // Mock console.log to capture output
 const consoleSpy = spy(console, 'log');
 describe('VitestAoReporter Integration Tests', () => {
