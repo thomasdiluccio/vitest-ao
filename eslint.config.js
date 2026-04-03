@@ -27,7 +27,7 @@ export default tseslint.config(
           alphabetize: { order: 'asc', caseInsensitive: true },
         },
       ],
-      'import/no-unresolved': 'error',
+      'import/no-unresolved': 'off', // tsc handles resolution for .js imports in ESM TypeScript
       'import/named': 'error',
       'import/namespace': 'error',
       'import/default': 'error',

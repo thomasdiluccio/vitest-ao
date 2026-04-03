@@ -3,33 +3,47 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { VitestAoReporter } from '../src/reporter.js';
 
-// Mock console.log to capture output
-const consoleSpy = spy(console, 'log');
+const ENV_VARS = [
+  'CURSOR_ENV',
+  'DEVIN_RUN_ID',
+  'VITEST_AO_MODE',
+  'CLAUDE_CODE',
+  'MISTRAL_VIBE_CLI',
+  'CODEX_ENV',
+] as const;
+
+function clearAgentEnvVars() {
+  for (const key of ENV_VARS) {
+    delete process.env[key];
+  }
+}
+
+function makeFile(tests: Array<{ state: string; errors?: Array<{ message: string }>; line?: number }>) {
+  return {
+    result: { duration: 10 },
+    tasks: tests.map((t, i) => ({
+      type: 'test' as const,
+      result: { state: t.state, errors: t.errors },
+      file: { filepath: 'test.ts' },
+      location: { line: t.line ?? i + 1 },
+      tasks: [],
+    })),
+  };
+}
 
 describe('VitestAoReporter Integration Tests', () => {
   let reporter: VitestAoReporter;
+  let consoleSpy: ReturnType<typeof spy>;
 
   beforeEach(() => {
-    // Clean up environment variables before creating reporter
-    delete process.env.CURSOR_ENV;
-    delete process.env.DEVIN_RUN_ID;
-    delete process.env.VITEST_AO_MODE;
-    delete process.env.CLAUDE_CODE;
-    delete process.env.MISTRAL_VIBE_CLI;
-    delete process.env.CODEX_ENV;
-    
+    clearAgentEnvVars();
     reporter = new VitestAoReporter();
-    consoleSpy.resetHistory();
+    consoleSpy = spy(console, 'log');
   });
 
   afterEach(() => {
-    // Clean up environment variables
-    delete process.env.CURSOR_ENV;
-    delete process.env.DEVIN_RUN_ID;
-    delete process.env.VITEST_AO_MODE;
-    delete process.env.CLAUDE_CODE;
-    delete process.env.MISTRAL_VIBE_CLI;
-    delete process.env.CODEX_ENV;
+    consoleSpy.restore();
+    clearAgentEnvVars();
   });
 
   describe('Agent Detection', () => {
@@ -70,56 +84,8 @@ describe('VitestAoReporter Integration Tests', () => {
 
   describe('Human Output (No Agent Detection)', () => {
     it('should not output JSON when no agent environment is detected', () => {
-      // Simulate test run
-      reporter.onTaskUpdate([{
-        tasks: [{
-          type: 'test',
-          name: 'test1',
-          result: { state: 'passed' },
-          file: { filepath: 'test.ts' },
-          line: 1
-        }]
-      }]);
-      
-      reporter.onFinished([], []);
-
-      // Should not have logged anything
+      reporter.onFinished([makeFile([{ state: 'pass' }])]);
       expect(consoleSpy.called).toBe(false);
-    });
-
-    it('should track test results even when not in agent mode', () => {
-      // Start with fresh results
-      expect(reporter['testResults'].tests).toBe(0);
-      expect(reporter['testResults'].passed).toBe(0);
-      expect(reporter['testResults'].failed).toBe(0);
-      
-      // Simulate task update
-      reporter.onTaskUpdate([{
-        tasks: [{
-          type: 'test',
-          name: 'test1',
-          result: { state: 'passed' },
-          file: { filepath: 'test.ts' },
-          line: 1
-        }]
-      }]);
-      
-      expect(reporter['testResults'].tests).toBe(1);
-      
-      // The test results are tracked in real-time
-      const results = reporter['testResults'];
-      expect(results.tests).toBe(1);
-      expect(results.passed).toBe(1);
-      expect(results.failed).toBe(0);
-      
-      // When not in agent mode, onFinished should not output JSON
-      reporter.onFinished([], []);
-      
-      // Results should still be the same
-      const resultsAfterEnd = reporter['testResults'];
-      expect(resultsAfterEnd.tests).toBe(1);
-      expect(resultsAfterEnd.passed).toBe(1);
-      expect(resultsAfterEnd.failed).toBe(0);
     });
   });
 
@@ -129,23 +95,11 @@ describe('VitestAoReporter Integration Tests', () => {
     });
 
     it('should output compact JSON for passing tests', () => {
-      // Simulate task updates
-      reporter.onTaskUpdate([{
-        tasks: [{
-          type: 'test',
-          name: 'test1',
-          result: { state: 'passed' },
-          file: { filepath: 'test.ts' },
-          line: 1
-        }]
-      }]);
-
-      reporter.onFinished([], []);
+      reporter.onFinished([makeFile([{ state: 'pass' }])]);
 
       expect(consoleSpy.calledOnce).toBe(true);
-      const output = consoleSpy.firstCall.args[0];
-      const json = JSON.parse(output);
-      
+      const json = JSON.parse(consoleSpy.firstCall.args[0] as string);
+
       expect(json.result).toBe('passed');
       expect(json.tests).toBe(1);
       expect(json.passed).toBe(1);
@@ -154,26 +108,13 @@ describe('VitestAoReporter Integration Tests', () => {
     });
 
     it('should output compact JSON for failing tests', () => {
-      // Simulate task updates with failure
-      reporter.onTaskUpdate([{
-        tasks: [{
-          type: 'test',
-          name: 'test1',
-          result: { 
-            state: 'failed',
-            errors: [{ message: 'Test failed' }]
-          },
-          file: { filepath: 'test.ts' },
-          line: 1
-        }]
-      }]);
-
-      reporter.onFinished([], []);
+      reporter.onFinished([
+        makeFile([{ state: 'fail', errors: [{ message: 'Test failed' }], line: 1 }]),
+      ]);
 
       expect(consoleSpy.calledOnce).toBe(true);
-      const output = consoleSpy.firstCall.args[0];
-      const json = JSON.parse(output);
-      
+      const json = JSON.parse(consoleSpy.firstCall.args[0] as string);
+
       expect(json.result).toBe('failed');
       expect(json.tests).toBe(1);
       expect(json.passed).toBe(0);
@@ -185,96 +126,101 @@ describe('VitestAoReporter Integration Tests', () => {
     });
 
     it('should handle multiple tests with mixed results', () => {
-      // Simulate multiple task updates
-      reporter.onTaskUpdate([{
-        tasks: [{
-          type: 'test',
-          name: 'test1',
-          result: { state: 'passed' },
-          file: { filepath: 'test.ts' },
-          line: 1
-        }]
-      }]);
-
-      reporter.onTaskUpdate([{
-        tasks: [{
-          type: 'test',
-          name: 'test2',
-          result: { 
-            state: 'failed',
-            errors: [{ message: 'Test 2 failed' }]
-          },
-          file: { filepath: 'test.ts' },
-          line: 5
-        }]
-      }]);
-
-      reporter.onFinished([], []);
+      reporter.onFinished([
+        makeFile([
+          { state: 'pass', line: 1 },
+          { state: 'fail', errors: [{ message: 'Test 2 failed' }], line: 5 },
+        ]),
+      ]);
 
       expect(consoleSpy.calledOnce).toBe(true);
-      const output = consoleSpy.firstCall.args[0];
-      const json = JSON.parse(output);
-      
+      const json = JSON.parse(consoleSpy.firstCall.args[0] as string);
+
       expect(json.result).toBe('failed');
       expect(json.tests).toBe(2);
       expect(json.passed).toBe(1);
       expect(json.failed).toBe(1);
       expect(json.failures.length).toBe(1);
+      expect(json.failures[0].message).toBe('Test 2 failed');
     });
 
     it('should handle skipped tests', () => {
-      // Simulate skipped test
-      reporter.onTaskUpdate([{
-        tasks: [{
-          type: 'test',
-          name: 'test1',
-          result: { state: 'skipped' },
-          file: { filepath: 'test.ts' },
-          line: 1
-        }]
-      }]);
-
-      reporter.onFinished([], []);
+      reporter.onFinished([makeFile([{ state: 'skip' }])]);
 
       expect(consoleSpy.calledOnce).toBe(true);
-      const output = consoleSpy.firstCall.args[0];
-      const json = JSON.parse(output);
-      
+      const json = JSON.parse(consoleSpy.firstCall.args[0] as string);
+
       expect(json.skipped).toBe(1);
+      expect(json.result).toBe('passed');
+    });
+
+    it('should aggregate tests across multiple files', () => {
+      reporter.onFinished([
+        makeFile([{ state: 'pass' }]),
+        makeFile([{ state: 'pass' }, { state: 'fail', errors: [{ message: 'err' }] }]),
+      ]);
+
+      const json = JSON.parse(consoleSpy.firstCall.args[0] as string);
+      expect(json.tests).toBe(3);
+      expect(json.passed).toBe(2);
+      expect(json.failed).toBe(1);
+    });
+
+    it('should walk nested suites to find tests', () => {
+      reporter.onFinished([
+        {
+          result: { duration: 5 },
+          tasks: [
+            {
+              type: 'suite',
+              tasks: [
+                {
+                  type: 'test',
+                  result: { state: 'pass' },
+                  file: { filepath: 'test.ts' },
+                  location: { line: 3 },
+                  tasks: [],
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+
+      const json = JSON.parse(consoleSpy.firstCall.args[0] as string);
+      expect(json.tests).toBe(1);
+      expect(json.passed).toBe(1);
+    });
+
+    it('should sum duration_ms across files', () => {
+      reporter.onFinished([
+        { result: { duration: 10 }, tasks: [{ type: 'test', result: { state: 'pass' }, file: { filepath: 'a.ts' }, location: { line: 1 }, tasks: [] }] },
+        { result: { duration: 20 }, tasks: [{ type: 'test', result: { state: 'pass' }, file: { filepath: 'b.ts' }, location: { line: 1 }, tasks: [] }] },
+      ]);
+
+      const json = JSON.parse(consoleSpy.firstCall.args[0] as string);
+      expect(json.duration_ms).toBe(30);
     });
   });
 
   describe('All Supported AI Agents', () => {
-    const agents = [
+    const agents: Array<{ env: (typeof ENV_VARS)[number]; value: string }> = [
       { env: 'CURSOR_ENV', value: 'true' },
       { env: 'DEVIN_RUN_ID', value: 'test-run' },
       { env: 'VITEST_AO_MODE', value: 'true' },
       { env: 'CLAUDE_CODE', value: 'true' },
       { env: 'MISTRAL_VIBE_CLI', value: 'true' },
-      { env: 'CODEX_ENV', value: 'true' }
+      { env: 'CODEX_ENV', value: 'true' },
     ];
 
     agents.forEach(({ env, value }) => {
       it(`should output JSON for ${env}`, () => {
         process.env[env] = value;
-        
-        reporter.onTaskUpdate([{
-          tasks: [{
-            type: 'test',
-            name: 'test1',
-            result: { state: 'passed' },
-            file: { filepath: 'test.ts' },
-            line: 1
-          }]
-        }]);
 
-        reporter.onFinished([], []);
+        reporter.onFinished([makeFile([{ state: 'pass' }])]);
 
         expect(consoleSpy.calledOnce).toBe(true);
-        const output = consoleSpy.firstCall.args[0];
-        
-        // Verify it's valid JSON
-        const json = JSON.parse(output);
+        const json = JSON.parse(consoleSpy.firstCall.args[0] as string);
         expect(json.result).toBe('passed');
       });
     });

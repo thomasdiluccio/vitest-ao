@@ -1,25 +1,23 @@
-import type { TestResult } from './types.js';
+import type { Failure, TestResult } from './types.js';
 
-// Define types from Vitest (not exported from vitest package)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Vitest = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type File = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type TaskResultPack = any;
+interface TaskLike {
+  type?: string;
+  result?: {
+    state?: string;
+    duration?: number;
+    errors?: Array<{ message?: string }>;
+  };
+  tasks?: TaskLike[];
+  file?: { filepath?: string };
+  location?: { line?: number };
+}
+
+interface FileLike {
+  result?: { duration?: number };
+  tasks?: TaskLike[];
+}
 
 export class VitestAoReporter {
-  private testResults: TestResult = {
-    result: 'passed',
-    tests: 0,
-    passed: 0,
-    failed: 0,
-    skipped: 0,
-    duration_ms: 0,
-    failures: [],
-    output: [],
-  };
-
   private isAgentEnvironment(): boolean {
     return (
       process.env.CURSOR_ENV !== undefined ||
@@ -31,57 +29,63 @@ export class VitestAoReporter {
     );
   }
 
-  onInit(_ctx: Vitest): void {
-    // Initialization logic if needed
-  }
-
-  onTaskUpdate(packs: TaskResultPack[]): void {
-    for (const pack of packs) {
-      // Handle different task structures
-      const tasks = Array.isArray(pack.tasks) ? pack.tasks : pack.tasks ? [pack.tasks] : [];
-      
-      for (const task of tasks) {
-        // Track test results
-        if (task?.type === 'test') {
-          this.testResults.tests++;
-          
-          if (task.result?.state === 'passed') {
-            this.testResults.passed++;
-          } else if (task.result?.state === 'failed') {
-            this.testResults.failed++;
-            this.testResults.failures.push({
-              file: task.file?.filepath || '',
-              line: task.line || 0,
-              message: task.result?.errors?.[0]?.message || '',
-            });
-          } else if (task.result?.state === 'skipped') {
-            this.testResults.skipped++;
-          }
+  private collectTests(
+    tasks: TaskLike[],
+    counts: { tests: number; passed: number; failed: number; skipped: number; failures: Failure[] },
+  ): void {
+    for (const task of tasks) {
+      if (task.type === 'test' || task.type === 'custom') {
+        counts.tests++;
+        const state = task.result?.state;
+        if (state === 'pass') {
+          counts.passed++;
+        } else if (state === 'fail') {
+          counts.failed++;
+          counts.failures.push({
+            file: task.file?.filepath ?? '',
+            line: task.location?.line ?? 0,
+            message: task.result?.errors?.[0]?.message ?? '',
+          });
+        } else {
+          counts.skipped++;
         }
+      }
+      if (task.tasks && task.tasks.length > 0) {
+        this.collectTests(task.tasks, counts);
       }
     }
   }
 
-  onFinished(files?: File[], _errors?: unknown[]): void {
-    // Calculate duration from files
-    const duration_ms = files?.reduce((acc, file) => acc + (file.result?.duration || 0), 0) || 0;
-    
-    // Update final result
-    this.testResults = {
-      result: this.testResults.failed === 0 ? 'passed' : 'failed',
-      tests: this.testResults.tests,
-      passed: this.testResults.passed,
-      failed: this.testResults.failed,
-      skipped: this.testResults.skipped,
+  onFinished(files?: FileLike[], _errors?: unknown[]): void {
+    const counts = {
+      tests: 0,
+      passed: 0,
+      failed: 0,
+      skipped: 0,
+      failures: [] as Failure[],
+    };
+
+    for (const file of files ?? []) {
+      this.collectTests(file.tasks ?? [], counts);
+    }
+
+    const duration_ms =
+      files?.reduce((acc, file) => acc + (file.result?.duration ?? 0), 0) ?? 0;
+
+    const result: TestResult = {
+      result: counts.failed > 0 ? 'failed' : 'passed',
+      tests: counts.tests,
+      passed: counts.passed,
+      failed: counts.failed,
+      skipped: counts.skipped,
       duration_ms,
-      failures: this.testResults.failures,
+      failures: counts.failures,
       output: [],
     };
 
-    // Only output JSON when in agent environment
     if (this.isAgentEnvironment()) {
       // eslint-disable-next-line no-console
-      console.log(JSON.stringify(this.testResults, null, 2));
+      console.log(JSON.stringify(result, null, 2));
     }
   }
 }
