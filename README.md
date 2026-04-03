@@ -88,6 +88,35 @@ VITEST_AO_MODE=true npx vitest run
 
 No additional configuration is needed. The plugin works out of the box!
 
+## Development
+
+### Linting
+
+The project includes ESLint with TypeScript support:
+
+```bash
+# Run linter
+npm run lint
+
+# Auto-fix linting issues
+npm run lint:fix
+
+# Check linting and build
+npm run check
+```
+
+### Building
+
+```bash
+npm run build
+```
+
+### Testing
+
+```bash
+npm test
+```
+
 ## License
 
 MIT

@@ -1,10 +1,12 @@
-import type { TestResult, Failure } from './types.js';
+import type { TestResult } from './types.js';
 
-// Define types from Vitest
+// Define types from Vitest (not exported from vitest package)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Vitest = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type File = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TaskResultPack = any;
-type UserConsoleLog = any;
 
 export class VitestAoReporter {
   private testResults: TestResult = {
@@ -29,10 +31,8 @@ export class VitestAoReporter {
     );
   }
 
-  onInit(ctx: Vitest): void {
-    if (this.isAgentEnvironment()) {
-      console.log('VITEST-AO: Reporter initialized in agent mode');
-    }
+  onInit(_ctx: Vitest): void {
+    // Initialization logic if needed
   }
 
   onTaskUpdate(packs: TaskResultPack[]): void {
@@ -59,7 +59,7 @@ export class VitestAoReporter {
     }
   }
 
-  onFinished(files?: File[], errors?: unknown[]): void {
+  onFinished(files?: File[], _errors?: unknown[]): void {
     // Calculate duration from files
     const duration_ms = files?.reduce((acc, file) => acc + (file.result?.duration || 0), 0) || 0;
     
@@ -77,6 +77,7 @@ export class VitestAoReporter {
 
     // Only output JSON when in agent environment
     if (this.isAgentEnvironment()) {
+      // eslint-disable-next-line no-console
       console.log(JSON.stringify(this.testResults, null, 2));
     }
   }
