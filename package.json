@@ -11,7 +11,7 @@
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --fix",
     "check": "npm run lint && npm run build",
-    "prepare": "npm run build && husky install"
+    "prepare": "npm run build && (husky || true)"
   },
   "keywords": [
     "vitest",
